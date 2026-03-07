@@ -38,10 +38,14 @@ class ChannelManager:
         if self.config.channels.telegram.enabled:
             try:
                 from nanobot.channels.telegram import TelegramChannel
+                # Pass workspace path for restrictToWorkspace support
+                restrict_ws = self.config.tools.restrict_to_workspace
+                workspace = self.config.workspace_path if restrict_ws else None
                 self.channels["telegram"] = TelegramChannel(
                     self.config.channels.telegram,
                     self.bus,
                     groq_api_key=self.config.providers.groq.api_key,
+                    workspace=workspace,
                 )
                 logger.info("Telegram channel enabled")
             except ImportError as e:

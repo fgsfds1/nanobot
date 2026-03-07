@@ -168,10 +168,13 @@ class TelegramChannel(BaseChannel):
         config: TelegramConfig,
         bus: MessageBus,
         groq_api_key: str = "",
+        workspace: Path | None = None,
     ):
         super().__init__(config, bus)
         self.config: TelegramConfig = config
         self.groq_api_key = groq_api_key
+        self.workspace = workspace  # Workspace path for media storage (if restrictToWorkspace is enabled)
+        logger.info("TelegramChannel initialized with workspace={}", workspace)
         self._app: Application | None = None
         self._chat_ids: dict[str, int] = {}  # Map sender_id to chat_id for replies
         self._typing_tasks: dict[str, asyncio.Task] = {}  # chat_id -> typing loop task
@@ -368,8 +371,10 @@ class TelegramChannel(BaseChannel):
             return
 
         user = update.effective_user
+        workspace_info = f"Workspace: {self.workspace}" if self.workspace else "Workspace: None (restrictToWorkspace not enabled)"
         await update.message.reply_text(
             f"👋 Hi {user.first_name}! I'm nanobot.\n\n"
+            f"{workspace_info}\n\n"
             "Send me a message and I'll respond!\n"
             "Type /help to see available commands."
         )
@@ -447,9 +452,12 @@ class TelegramChannel(BaseChannel):
                 file = await self._app.bot.get_file(media_file.file_id)
                 ext = self._get_extension(media_type, getattr(media_file, 'mime_type', None))
 
-                # Save to workspace/media/
-                from pathlib import Path
-                media_dir = Path.home() / ".nanobot" / "media"
+                # Save to workspace/media/ if workspace is provided (for restrictToWorkspace support)
+                # Otherwise fall back to ~/.nanobot/media/
+                if self.workspace:
+                    media_dir = self.workspace / "media"
+                else:
+                    media_dir = Path.home() / ".nanobot" / "media"
                 media_dir.mkdir(parents=True, exist_ok=True)
 
                 file_path = media_dir / f"{media_file.file_id[:16]}{ext}"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 import re
 import time
 import unicodedata
@@ -174,7 +175,6 @@ class TelegramChannel(BaseChannel):
         self.config: TelegramConfig = config
         self.groq_api_key = groq_api_key
         self.workspace = workspace  # Workspace path for media storage (if restrictToWorkspace is enabled)
-        logger.info("TelegramChannel initialized with workspace={}", workspace)
         self._app: Application | None = None
         self._chat_ids: dict[str, int] = {}  # Map sender_id to chat_id for replies
         self._typing_tasks: dict[str, asyncio.Task] = {}  # chat_id -> typing loop task

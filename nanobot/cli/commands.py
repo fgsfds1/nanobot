@@ -311,13 +311,6 @@ def _load_runtime_config(
         )
         loaded.agents.defaults.workspace = workspace
 
-    # Warn about deprecated workspace field in config file
-    if loaded.agents.defaults.workspace != "~/.nanobot/workspace":
-        console.print(
-            "[yellow]Warning: agents.defaults.workspace in config is deprecated.[/yellow]"
-        )
-        console.print("[yellow]         Set 'data_dir' in your config file instead.[/yellow]")
-
     return loaded
 
 

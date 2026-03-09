@@ -55,13 +55,25 @@ def load_config(config_path: Path | None = None) -> Config:
     Returns:
         Loaded configuration object.
     """
+    import sys
+
     path = config_path or get_config_path()
 
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            data = _migrate_config(data, path)
+            data, migrated = _migrate_config(data, path)
+
+            # If migration occurred, save the updated config back to disk
+            if migrated:
+                print(
+                    f"Config migrated: workspace → data_dir in {path}",
+                    file=sys.stderr,
+                )
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+
             return Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
@@ -87,9 +99,15 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def _migrate_config(data: dict, config_path: Path) -> dict:
-    """Migrate old config formats to current."""
+def _migrate_config(data: dict, config_path: Path) -> tuple[dict, bool]:
+    """Migrate old config formats to current.
+
+    Returns:
+        (migrated_data, migration_occurred)
+    """
     import sys
+
+    migrated = False
 
     # Move tools.exec.restrictToWorkspace → tools.restrictToWorkspace
     tools = data.get("tools", {})
@@ -98,14 +116,12 @@ def _migrate_config(data: dict, config_path: Path) -> dict:
         tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
 
     # Migrate agents.defaults.workspace to data_dir (if not already set)
-    # Note: we don't remove the workspace field, just set data_dir alongside it.
-    # This allows the runtime warning to fire and gives users time to update their configs.
     if "data_dir" not in data:
         agents = data.setdefault("agents", {})
         defaults = agents.setdefault("defaults", {})
         workspace = defaults.get("workspace")
 
-        if workspace and workspace != "~/.nanobot/workspace":
+        if workspace:
             ws_path = Path(workspace).expanduser()
 
             # Only migrate if workspace follows the <data_dir>/workspace convention
@@ -113,6 +129,9 @@ def _migrate_config(data: dict, config_path: Path) -> dict:
             # 2. Parent must match config file's parent directory
             if ws_path.name == "workspace" and ws_path.parent == config_path.parent:
                 data["data_dir"] = str(ws_path.parent)
+                # Remove the old workspace field from config
+                defaults.pop("workspace", None)
+                migrated = True
             else:
                 print(
                     f"Warning: Could not auto-migrate workspace path '{workspace}'.",
@@ -123,4 +142,4 @@ def _migrate_config(data: dict, config_path: Path) -> dict:
                     file=sys.stderr,
                 )
 
-    return data
+    return data, migrated

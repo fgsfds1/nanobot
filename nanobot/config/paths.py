@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nanobot.config.loader import get_config_path
+from nanobot.config.loader import get_data_dir as _get_data_dir
 from nanobot.utils.helpers import ensure_dir
 
 
 def get_data_dir() -> Path:
     """Return the instance-level runtime data directory."""
-    return ensure_dir(get_config_path().parent)
+    return ensure_dir(_get_data_dir())
 
 
 def get_runtime_subdir(name: str) -> Path:
@@ -35,9 +35,14 @@ def get_logs_dir() -> Path:
 
 
 def get_workspace_path(workspace: str | None = None) -> Path:
-    """Resolve and ensure the agent workspace path."""
-    path = Path(workspace).expanduser() if workspace else Path.home() / ".nanobot" / "workspace"
-    return ensure_dir(path)
+    """Resolve and ensure the agent workspace path.
+
+    Args:
+        workspace: Deprecated. Workspace is now always <data_dir>/workspace.
+    """
+    if workspace:
+        return ensure_dir(Path(workspace).expanduser())
+    return ensure_dir(_get_data_dir() / "workspace")
 
 
 def get_cli_history_path() -> Path:
